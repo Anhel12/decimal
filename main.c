@@ -1254,6 +1254,114 @@ int main() {
     passed_tests++;
   print_test_result("NULL указатель", 1, status);
 
+  // ============================================================
+  // БЛОК: s21_from_int_to_decimal
+  // ============================================================
+  print_header("ТЕСТЫ s21_from_int_to_decimal");
+  
+  int res;
+  int success;
+
+  print_subheader("Проверка некорректного указателя");
+
+  total_tests++;
+  res = s21_from_int_to_decimal(123, NULL);
+  if (res == 1) passed_tests++;
+  print_test_result("Передача NULL указателя (возврат 1)", 1, res);
+
+  print_subheader("Преобразование нуля");
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_int_to_decimal(0, &d);
+  success = (res == 0 && d.bits[0] == 0 && d.bits[1] == 0 && d.bits[2] == 0 && d.bits[3] == 0);
+  if (success) passed_tests++;
+  print_test_result("0 -> все биты нулевые, знак 0", 1, success);
+
+  print_subheader("Преобразование положительных чисел");
+
+  // 1
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_int_to_decimal(1, &d);
+  success = (res == 0 && d.bits[0] == 1 && d.bits[1] == 0 && d.bits[2] == 0 && d.bits[3] == 0);
+  if (success) passed_tests++;
+  print_test_result("1 -> bits[0]=1, знак 0", 1, success);
+
+  // 123
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_int_to_decimal(123, &d);
+  success = (res == 0 && d.bits[0] == 123 && d.bits[1] == 0 && d.bits[2] == 0 && d.bits[3] == 0);
+  if (success) passed_tests++;
+  print_test_result("123 -> bits[0]=123, знак 0", 1, success);
+
+  // 2147483647 (максимальный int)
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_int_to_decimal(2147483647, &d);
+  success = (res == 0 && d.bits[0] == 2147483647u && d.bits[1] == 0 && d.bits[2] == 0 && d.bits[3] == 0);
+  if (success) passed_tests++;
+  print_test_result("2147483647 -> bits[0]=2147483647, знак 0", 1, success);
+
+  print_subheader("Преобразование отрицательных чисел");
+
+  // -1
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_int_to_decimal(-1, &d);
+  success = (res == 0 && d.bits[0] == 1 && d.bits[1] == 0 && d.bits[2] == 0 && d.bits[3] == 0x80000000);
+  if (success) passed_tests++;
+  print_test_result("-1 -> bits[0]=1, знак 1", 1, success);
+
+  // -123
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_int_to_decimal(-123, &d);
+  success = (res == 0 && d.bits[0] == 123 && d.bits[1] == 0 && d.bits[2] == 0 && d.bits[3] == 0x80000000);
+  if (success) passed_tests++;
+  print_test_result("-123 -> bits[0]=123, знак 1", 1, success);
+
+  // -2147483648 (минимальный int)
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_int_to_decimal(-2147483648, &d);
+  success = (res == 0 && d.bits[0] == 2147483648u && d.bits[1] == 0 && d.bits[2] == 0 && d.bits[3] == 0x80000000);
+  if (success) passed_tests++;
+  print_test_result("-2147483648 -> bits[0]=2147483648, знак 1", 1, success);
+
+  print_subheader("Проверка отсутствия побочных эффектов");
+
+  // Проверяем, что bits[1] и bits[2] остаются нулевыми для разных чисел
+  s21_zero_decimal(&d);
+  s21_from_int_to_decimal(42, &d);
+  total_tests++;
+  success = (d.bits[1] == 0 && d.bits[2] == 0);
+  if (success) passed_tests++;
+  print_test_result("bits[1] и bits[2] равны 0 для 42", 1, success);
+
+  s21_zero_decimal(&d);
+  s21_from_int_to_decimal(-777, &d);
+  total_tests++;
+  success = (d.bits[1] == 0 && d.bits[2] == 0);
+  if (success) passed_tests++;
+  print_test_result("bits[1] и bits[2] равны 0 для -777", 1, success);
+
+  // Проверка масштаба (биты 16-23) – всегда 0
+  s21_zero_decimal(&d);
+  s21_from_int_to_decimal(999, &d);
+  total_tests++;
+  success = ((d.bits[3] & 0x00FF0000) == 0);
+  if (success) passed_tests++;
+  print_test_result("Масштаб (биты 16-23) равен 0 для 999", 1, success);
+
+  s21_zero_decimal(&d);
+  s21_from_int_to_decimal(-999, &d);
+  total_tests++;
+  success = ((d.bits[3] & 0x00FF0000) == 0);
+  if (success) passed_tests++;
+  print_test_result("Масштаб (биты 16-23) равен 0 для -999", 1, success);
+
   printf("\n╔══════════════════════════════════════════════════════════╗\n");
   printf("║  РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ                                 ║\n");
   printf("╚══════════════════════════════════════════════════════════╝\n");

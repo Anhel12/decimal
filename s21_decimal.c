@@ -354,3 +354,14 @@ int s21_div(s21_decimal value_1, s21_decimal value_2, s21_decimal *result) {
 
   return 0;
 }
+
+int s21_from_int_to_decimal(int src, s21_decimal *dst) {
+    if (!dst) return 1;
+    s21_zero_decimal(dst);                  // обнуляем все биты
+    if (src == 0) return 0;
+
+    unsigned int abs_val = src < 0 ? -src : src;
+    dst->bits[0] = abs_val;          
+    if (src < 0) s21_set_sign(dst, 1);      // установить знак
+    return 0;
+}
