@@ -1258,7 +1258,7 @@ int main() {
   // БЛОК: s21_from_int_to_decimal
   // ============================================================
   print_header("ТЕСТЫ s21_from_int_to_decimal");
-  
+
   int res;
   int success;
 
@@ -1361,6 +1361,267 @@ int main() {
   success = ((d.bits[3] & 0x00FF0000) == 0);
   if (success) passed_tests++;
   print_test_result("Масштаб (биты 16-23) равен 0 для -999", 1, success);
+
+  // ============================================================
+  // БЛОК: s21_from_decimal_to_int
+  // ============================================================
+  print_header("ТЕСТЫ s21_from_decimal_to_int");
+
+  int result;
+  int dst;
+
+  print_subheader("Проверка некорректных указателей и невалидных decimal");
+
+  // dst == NULL
+  total_tests++;
+  result = s21_from_decimal_to_int(d, NULL);
+  if (result == 1) passed_tests++;
+  print_test_result("Передача NULL dst (возврат 1)", 1, result);
+
+  // Невалидный decimal (биты 24-31 установлены)
+  s21_zero_decimal(&d);
+  d.bits[3] = 0xFFFFFFFF;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  if (result == 1) passed_tests++;
+  print_test_result("Невалидный decimal (bits[3] с запрещёнными битами) -> возврат 1", 1, result);
+
+  // Масштаб > 28
+  s21_zero_decimal(&d);
+  d.bits[0] = 123;
+  d.bits[3] = 29 << 16;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  if (result == 1) passed_tests++;
+  print_test_result("Невалидный decimal (масштаб 29) -> возврат 1", 1, result);
+
+  print_subheader("Преобразование нуля");
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("Ноль -> dst = 0, возврат 0", 1, success);
+
+  print_subheader("Преобразование положительных целых чисел (scale = 0)");
+
+  // 1
+  s21_zero_decimal(&d);
+  d.bits[0] = 1;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 1);
+  if (success) passed_tests++;
+  print_test_result("1 -> dst = 1", 1, success);
+
+  // 123
+  s21_zero_decimal(&d);
+  d.bits[0] = 123;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 123);
+  if (success) passed_tests++;
+  print_test_result("123 -> dst = 123", 1, success);
+
+  // 2147483647
+  s21_zero_decimal(&d);
+  d.bits[0] = 2147483647u;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 2147483647);
+  if (success) passed_tests++;
+  print_test_result("2147483647 -> dst = 2147483647", 1, success);
+
+  print_subheader("Преобразование отрицательных целых чисел (scale = 0)");
+
+  // -1
+  s21_zero_decimal(&d);
+  d.bits[0] = 1;
+  s21_set_sign(&d, 1);
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == -1);
+  if (success) passed_tests++;
+  print_test_result("-1 -> dst = -1", 1, success);
+
+  // -123
+  s21_zero_decimal(&d);
+  d.bits[0] = 123;
+  s21_set_sign(&d, 1);
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == -123);
+  if (success) passed_tests++;
+  print_test_result("-123 -> dst = -123", 1, success);
+
+  // -2147483648
+  s21_zero_decimal(&d);
+  d.bits[0] = 2147483648u;
+  s21_set_sign(&d, 1);
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == -2147483648);
+  if (success) passed_tests++;
+  print_test_result("-2147483648 -> dst = -2147483648", 1, success);
+
+  print_subheader("Преобразование чисел с дробной частью (отбрасывание)");
+
+  // 123.45 (scale=2)
+  s21_zero_decimal(&d);
+  d.bits[0] = 12345;
+  d.bits[3] = 2 << 16;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 123);
+  if (success) passed_tests++;
+  print_test_result("123.45 -> dst = 123", 1, success);
+
+  // 0.999 (scale=3)
+  s21_zero_decimal(&d);
+  d.bits[0] = 999;
+  d.bits[3] = 3 << 16;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("0.999 -> dst = 0", 1, success);
+
+  // -123.45 (scale=2)
+  s21_zero_decimal(&d);
+  d.bits[0] = 12345;
+  d.bits[3] = 2 << 16;
+  s21_set_sign(&d, 1);
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == -123);
+  if (success) passed_tests++;
+  print_test_result("-123.45 -> dst = -123", 1, success);
+
+  // -0.999 (scale=3)
+  s21_zero_decimal(&d);
+  d.bits[0] = 999;
+  d.bits[3] = 3 << 16;
+  s21_set_sign(&d, 1);
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("-0.999 -> dst = 0", 1, success);
+
+  // 0.5 (scale=1)
+  s21_zero_decimal(&d);
+  d.bits[0] = 5;
+  d.bits[3] = 1 << 16;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("0.5 -> dst = 0", 1, success);
+
+  // -0.5 (scale=1)
+  s21_zero_decimal(&d);
+  d.bits[0] = 5;
+  d.bits[3] = 1 << 16;
+  s21_set_sign(&d, 1);
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("-0.5 -> dst = 0", 1, success);
+
+  print_subheader("Переполнение (число выходит за пределы int)");
+
+  // 2147483648 (max int + 1)
+  s21_zero_decimal(&d);
+  d.bits[0] = 2147483648u;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 1 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("2147483648 -> возврат 1 (переполнение)", 1, success);
+
+  // -2147483649
+  s21_zero_decimal(&d);
+  d.bits[0] = 2147483649u;
+  s21_set_sign(&d, 1);
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 1 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("-2147483649 -> возврат 1", 1, success);
+
+  // bits[1] != 0
+  s21_zero_decimal(&d);
+  d.bits[1] = 1;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 1 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("2^32 (bits[1]=1) -> возврат 1", 1, success);
+
+  // bits[2] != 0
+  s21_zero_decimal(&d);
+  d.bits[2] = 1;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 1 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("2^64 (bits[2]=1) -> возврат 1", 1, success);
+
+  // После деления на 10 всё равно больше int
+  s21_zero_decimal(&d);
+  d.bits[1] = 5;      // 5 * 2^32 = 21474836480
+  d.bits[0] = 0;
+  d.bits[3] = 1 << 16; // scale=1, после деления = 2147483648
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 1 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("5*2^32 с масштабом 1 -> возврат 1", 1, success);
+
+  print_subheader("Краевые случаи с масштабом и делением");
+
+  // 0.05 -> 0
+  s21_zero_decimal(&d);
+  d.bits[0] = 5;
+  d.bits[3] = 2 << 16;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("0.05 -> dst = 0", 1, success);
+
+  // Максимальный масштаб 28, число маленькое -> 0
+  s21_zero_decimal(&d);
+  d.bits[0] = 123456789;
+  d.bits[3] = 28 << 16;
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 0);
+  if (success) passed_tests++;
+  print_test_result("123456789 с масштабом 28 -> dst = 0", 1, success);
+
+  // Успешное преобразование с масштабом, после деления получается int
+  s21_zero_decimal(&d);
+  d.bits[0] = 1234567890;
+  d.bits[3] = 1 << 16; // 123456789
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == 123456789);
+  if (success) passed_tests++;
+  print_test_result("1234567890 с масштабом 1 -> dst = 123456789", 1, success);
+
+  // Отрицательное с масштабом
+  s21_zero_decimal(&d);
+  d.bits[0] = 1234567890;
+  d.bits[3] = 1 << 16;
+  s21_set_sign(&d, 1);
+  total_tests++;
+  result = s21_from_decimal_to_int(d, &dst);
+  success = (result == 0 && dst == -123456789);
+  if (success) passed_tests++;
+  print_test_result("-1234567890 с масштабом 1 -> dst = -123456789", 1, success);
 
   printf("\n╔══════════════════════════════════════════════════════════╗\n");
   printf("║  РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ                                 ║\n");

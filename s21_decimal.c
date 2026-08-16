@@ -356,12 +356,38 @@ int s21_div(s21_decimal value_1, s21_decimal value_2, s21_decimal *result) {
 }
 
 int s21_from_int_to_decimal(int src, s21_decimal *dst) {
-    if (!dst) return 1;
+    if (dst == NULL) return 1;
     s21_zero_decimal(dst);                  // обнуляем все биты
     if (src == 0) return 0;
 
-    unsigned int abs_val = src < 0 ? -src : src;
-    dst->bits[0] = abs_val;          
+    unsigned int val = src < 0 ? -src : src;
+    dst->bits[0] = val;          
     if (src < 0) s21_set_sign(dst, 1);      // установить знак
+    return 0;
+}
+
+int s21_from_decimal_to_int(s21_decimal src, int *dst) {
+    if (dst == NULL || !s21_is_valid(src)) return 1;
+    if (s21_is_zero(src)) {
+        *dst = 0;
+        return 0;
+    }
+
+    int scale = s21_get_scale(src);
+
+    // Отбрасываем дробную часть (целочисленное деление на 10^scale)
+    while (scale-- > 0) {
+        if (s21_div_mantissa_by_10(&src)) return 1;
+    }
+
+    if (src.bits[2] != 0 || src.bits[1] != 0) return 1; // число больше int
+
+    unsigned int val = src.bits[0];
+    int sign = s21_get_sign(src);
+    if (sign == 0) {
+        *dst = (int)val;
+    } else {
+        *dst = -(int)val;
+    }
     return 0;
 }
