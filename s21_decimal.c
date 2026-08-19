@@ -377,17 +377,19 @@ int s21_from_decimal_to_int(s21_decimal src, int *dst) {
 
     // Отбрасываем дробную часть (целочисленное деление на 10^scale)
     while (scale-- > 0) {
-        if (s21_div_mantissa_by_10(&src)) return 1;
+        s21_div_mantissa_by_10(&src);
     }
 
     if (src.bits[2] != 0 || src.bits[1] != 0) return 1; // число больше int
 
     unsigned int val = src.bits[0];
     int sign = s21_get_sign(src);
-    if (sign == 0) {
-        *dst = (int)val;
+    if (sign) {
+      if(val > 2147483648U) return 1;
+      *dst = -(int)val;
     } else {
-        *dst = -(int)val;
+      if(val > 2147483647U) return 1;
+      *dst = (int)val;
     }
     return 0;
 }

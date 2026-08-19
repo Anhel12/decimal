@@ -1470,7 +1470,7 @@ int main() {
   // 123.45 (scale=2)
   s21_zero_decimal(&d);
   d.bits[0] = 12345;
-  d.bits[3] = 2 << 16;
+  s21_set_scale(&d, 2);
   total_tests++;
   result = s21_from_decimal_to_int(d, &dst);
   success = (result == 0 && dst == 123);

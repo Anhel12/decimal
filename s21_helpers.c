@@ -112,7 +112,7 @@ int s21_div_mantissa_by_10(s21_decimal *d) {
     return 1;
   }
   uint64_t carry = 0;
-  for (int i = 2; i >= 0; i++) {
+  for (int i = 2; i >= 0; i--) {
     uint64_t temp = (uint64_t)carry << 32 | (uint32_t)d->bits[i];
     d->bits[i] = (uint32_t)(temp / 10);
     carry = temp % 10;
