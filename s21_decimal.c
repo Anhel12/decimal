@@ -369,15 +369,15 @@ int s21_from_int_to_decimal(int src, s21_decimal *dst) {
 int s21_from_decimal_to_int(s21_decimal src, int *dst) {
     if (dst == NULL || !s21_is_valid(src)) return 1;
     if (s21_is_zero(src)) {
-        *dst = 0;
-        return 0;
+      *dst = 0;
+      return 0;
     }
 
     int scale = s21_get_scale(src);
 
     // Отбрасываем дробную часть (целочисленное деление на 10^scale)
     while (scale-- > 0) {
-        s21_div_mantissa_by_10(&src);
+      s21_div_mantissa_by_10(&src);
     }
 
     if (src.bits[2] != 0 || src.bits[1] != 0) return 1; // число больше int
@@ -392,4 +392,20 @@ int s21_from_decimal_to_int(s21_decimal src, int *dst) {
       *dst = (int)val;
     }
     return 0;
+}
+
+int s21_from_float_to_decimal(float src, s21_decimal *dst) {
+  if (dst == NULL) return 1;
+  s21_zero_decimal(dst);                  // обнуляем все биты
+  if (src == 0) return 0;
+
+  float val = src < 0 ? -src : src;
+  if ((src > 0 && src < 1e-28) || val > 79228162514264337593543950335) return 1;
+
+  if (src < 0) s21_set_sign(dst, 1); 
+
+
+
+
+
 }
