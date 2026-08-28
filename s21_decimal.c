@@ -1,5 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include "s21_helpers.h"
 
@@ -397,15 +399,104 @@ int s21_from_decimal_to_int(s21_decimal src, int *dst) {
 int s21_from_float_to_decimal(float src, s21_decimal *dst) {
   if (dst == NULL) return 1;
   s21_zero_decimal(dst);                  // обнуляем все биты
-  if (src == 0) return 0;
+  if (src == 0.0f) return 0;
 
-  float val = src < 0 ? -src : src;
-  if ((src > 0 && src < 1e-28) || val > 79228162514264337593543950335) return 1;
+  float f = src;
+  int sign = 0;
+  if (f < 0) { sign = 1; f = -f; }
+  const float max_dec = 7.9228162514264337593543950335e28f; // 2^96 - 1
+  if ((src > 0 && src < 1e-28) || f > max_dec) return 1;
 
-  if (src < 0) s21_set_sign(dst, 1); 
+  if (src < 0) s21_set_sign(dst, 1);
 
+  char buf[64];
+  snprintf(buf, sizeof(buf), "%.10e", f);
 
+  char *e_pos = strchr(buf, 'e');
+  if (!e_pos) return 1;
 
+  char mant_buf[64];
+  int mant_len = 0;
+  for (char *p = buf; p < e_pos; p++) {
+    if (*p >= '0' && *p <= '9') mant_buf[mant_len++] = *p;
+  }
+  mant_buf[mant_len] = '\0';
+  int exp = atoi(e_pos + 1);
 
+  // if (mant_len == 0 || strspn(mant_buf, "0") == mant_len) return 0;
 
+  if (mant_len > 7) {
+    int carry = 0;
+    int eighth = mant_buf[7] - '0';
+    if (eighth > 5) {
+      carry = 1;
+    } else if (eighth == 5) {
+      int seventh = mant_buf[6] - '0';
+      if (seventh % 2 == 1) carry = 1;
+    }
+    char new_mant[8];
+    strncpy(new_mant, mant_buf, 7);
+    new_mant[7] = '\0';
+    if (carry) {
+      int idx = 6;
+      while (idx >= 0 && new_mant[idx] == '9') {
+        new_mant[idx] = '0';
+        idx--;
+      }
+      if (idx >= 0) {
+        new_mant[idx] += 1;
+      } else {
+        new_mant[0] = '1';
+        for (int i = 1; i < 7; i++) new_mant[i] = '0';
+        exp += 1;
+      }
+    }
+    strcpy(mant_buf, new_mant);
+    mant_len = 7;
+  }
+
+  s21_decimal M;
+  s21_zero_decimal(&M);
+  for (int i = 0; i < mant_len; i++) {
+    if (s21_mul_mantissa_by_10(&M)) return 1;
+    uint32_t digit = mant_buf[i] - '0';
+    s21_decimal digit_dec;
+    s21_zero_decimal(&digit_dec);
+    digit_dec.bits[0] = digit;
+    if (s21_add_mantissa(M, digit_dec, &M)) return 1;
+  }
+
+  int E = exp - (mant_len - 1);
+  int scale = 0;
+  s21_decimal N = M;
+
+  if (E >= 0) {
+    for (int i = 0; i < E; i++) {
+      if (s21_mul_mantissa_by_10(&N)) return 1;
+    }
+    scale = 0;
+  } else {
+    scale = -E;
+  }
+
+  while (scale > 0) {
+    s21_decimal temp = N;
+    int rem = s21_div_mantissa_by_10(&temp);
+    if (rem == 0) {
+        s21_div_mantissa_by_10(&N);
+        scale--;
+    } else {
+        break;
+    }
+  }
+  
+  if (scale > 28) return 1;
+
+  dst->bits[0] = N.bits[0];
+  dst->bits[1] = N.bits[1];
+  dst->bits[2] = N.bits[2];
+  s21_set_scale(dst, scale);
+  s21_set_sign(dst, sign);
+
+  return 0;
 }

@@ -16,11 +16,11 @@ $(LIB_NAME): $(OBJS)
 
 # Компиляция объектных файлов
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@ -lm
 
 # Тесты (использует библиотеку)
 tests: $(LIB_NAME)
-	$(CC) $(CFLAGS) main.c -L. -l:s21_decimal.a  -o tests
+	$(CC) $(CFLAGS) main.c -L. -l:s21_decimal.a  -o tests -lm
 	./tests
 
 # GCOV отчёт

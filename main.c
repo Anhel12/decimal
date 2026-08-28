@@ -1623,6 +1623,157 @@ int main() {
   if (success) passed_tests++;
   print_test_result("-1234567890 с масштабом 1 -> dst = -123456789", 1, success);
 
+  // ============================================================
+  // БЛОК: s21_from_float_to_decimal
+  // ============================================================
+  print_header("ТЕСТЫ s21_from_float_to_decimal");
+
+  print_subheader("Проверка некорректного указателя");
+
+  total_tests++;
+  res = s21_from_float_to_decimal(1.0f, NULL);
+  if (res == 1) passed_tests++;
+  print_test_result("Передача NULL указателя (возврат 1)", 1, res);
+
+  print_subheader("Преобразование нуля");
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(0.0f, &d);
+  success = (res == 0 && d.bits[0] == 0 && d.bits[1] == 0 && d.bits[2] == 0 && d.bits[3] == 0);
+  if (success) passed_tests++;
+  print_test_result("0.0 -> нулевой decimal", 1, success);
+
+  print_subheader("Преобразование целых чисел");
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(1.0f, &d);
+  success = (res == 0 && d.bits[0] == 1 && d.bits[1] == 0 && d.bits[2] == 0 && s21_get_scale(d) == 0 && s21_get_sign(d) == 0);
+  if (success) passed_tests++;
+  print_test_result("1.0 -> bits[0]=1, scale=0, sign=0", 1, success);
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(-1.0f, &d);
+  success = (res == 0 && d.bits[0] == 1 && d.bits[1] == 0 && d.bits[2] == 0 && s21_get_scale(d) == 0 && s21_get_sign(d) == 1);
+  if (success) passed_tests++;
+  print_test_result("-1.0 -> bits[0]=1, scale=0, sign=1", 1, success);
+
+  print_subheader("Преобразование чисел с дробной частью");
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(0.1f, &d);
+  success = (res == 0 && d.bits[0] == 1 && d.bits[1] == 0 && d.bits[2] == 0 && s21_get_scale(d) == 1 && s21_get_sign(d) == 0);
+  if (success) passed_tests++;
+  print_test_result("0.1 -> bits[0]=1, scale=1, sign=0", 1, success);
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(-0.1f, &d);
+  success = (res == 0 && d.bits[0] == 1 && d.bits[1] == 0 && d.bits[2] == 0 && s21_get_scale(d) == 1 && s21_get_sign(d) == 1);
+  if (success) passed_tests++;
+  print_test_result("-0.1 -> bits[0]=1, scale=1, sign=1", 1, success);
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(123.456f, &d);
+  success = (res == 0 && d.bits[0] == 123456 && d.bits[1] == 0 && d.bits[2] == 0 && s21_get_scale(d) == 3 && s21_get_sign(d) == 0);
+  if (success) passed_tests++;
+  print_test_result("123.456 -> bits[0]=123456, scale=3, sign=0", 1, success);
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(-123.456f, &d);
+  success = (res == 0 && d.bits[0] == 123456 && d.bits[1] == 0 && d.bits[2] == 0 && s21_get_scale(d) == 3 && s21_get_sign(d) == 1);
+  if (success) passed_tests++;
+  print_test_result("-123.456 -> bits[0]=123456, scale=3, sign=1", 1, success);
+
+  print_subheader("Проверка округления до 7 значащих цифр");
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(1.23456789f, &d);
+  success = (res == 0 && d.bits[0] == 1234568 && d.bits[1] == 0 && d.bits[2] == 0 && s21_get_scale(d) == 6 && s21_get_sign(d) == 0);
+  if (success) passed_tests++;
+  print_test_result("1.23456789 -> 1.234568 (scale=6, mantissa=1234568)", 1, success);
+
+  print_subheader("Проверка граничных значений");
+
+  // слишком маленькое (меньше 1e-28)
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(1e-30f, &d);
+  if (res == 1) passed_tests++;
+  print_test_result("1e-30 -> ошибка (возврат 1)", 1, res);
+
+  // слишком большое (больше max)
+  s21_zero_decimal(&d);
+  total_tests++;
+  float big_val = 1e30f; // 1e30 > 7.9e28, должно вернуть ошибку
+  res = s21_from_float_to_decimal(big_val, &d);
+  if (res == 1) passed_tests++;
+  print_test_result("1e30 -> ошибка (возврат 1)", 1, res);
+
+  // бесконечность
+  s21_zero_decimal(&d);
+  float inf = 1.0f / 0.0f;
+  total_tests++;
+  res = s21_from_float_to_decimal(inf, &d);
+  if (res == 1) passed_tests++;
+  print_test_result("inf -> ошибка", 1, res);
+
+  // -inf
+  s21_zero_decimal(&d);
+  float neg_inf = -1.0f / 0.0f;
+  total_tests++;
+  res = s21_from_float_to_decimal(neg_inf, &d);
+  if (res == 1) passed_tests++;
+  print_test_result("-inf -> ошибка", 1, res);
+
+  // NaN
+  s21_zero_decimal(&d);
+  float nan_val = 0.0f / 0.0f;
+  total_tests++;
+  res = s21_from_float_to_decimal(nan_val, &d);
+  if (res == 1) passed_tests++;
+  print_test_result("NaN -> ошибка", 1, res);
+
+  print_subheader("Проверка корректности масштаба (не больше 28)");
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(1e-28f, &d);
+  success = (res == 0 && s21_get_scale(d) == 28 && d.bits[0] == 1 && d.bits[1] == 0 && d.bits[2] == 0);
+  if (success) passed_tests++;
+  print_test_result("1e-28 -> scale=28, bits[0]=1", 1, success);
+
+  // Проверка, что при ошибке dst остаётся нулевым
+  s21_zero_decimal(&d);
+  float big_val2 = 1e30f;
+  total_tests++;
+  res = s21_from_float_to_decimal(big_val2, &d);
+  success = (res == 1 && d.bits[0] == 0 && d.bits[1] == 0 && d.bits[2] == 0 && d.bits[3] == 0);
+  if (success) passed_tests++;
+  print_test_result("При ошибке dst остаётся нулевым", 1, success);
+
+  // -0.0 -> должен быть 0 без знака
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(-0.0f, &d);
+  success = (res == 0 && d.bits[0] == 0 && d.bits[1] == 0 && d.bits[2] == 0 && d.bits[3] == 0);
+  if (success) passed_tests++;
+  print_test_result("-0.0 -> нулевой decimal (знак не устанавливается)", 1, success);
+
+  // Проверка, что знак устанавливается для отрицательных чисел
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_float_to_decimal(-123.456f, &d);
+  success = (res == 0 && s21_get_sign(d) == 1);
+  if (success) passed_tests++;
+  print_test_result("-123.456 -> sign=1", 1, success);
+
   printf("\n╔══════════════════════════════════════════════════════════╗\n");
   printf("║  РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ                                 ║\n");
   printf("╚══════════════════════════════════════════════════════════╝\n");
