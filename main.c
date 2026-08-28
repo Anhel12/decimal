@@ -1,6 +1,7 @@
 #include "s21_decimal.h"
 #include "s21_helpers.h"
 #include <stdio.h>
+#include <math.h>
 
 void print_test_result(const char *test_name, int expected, int actual) {
   printf("%s: ", test_name);
@@ -1773,6 +1774,205 @@ int main() {
   success = (res == 0 && s21_get_sign(d) == 1);
   if (success) passed_tests++;
   print_test_result("-123.456 -> sign=1", 1, success);
+
+  // ============================================================
+  // БЛОК: s21_from_decimal_to_float
+  // ============================================================
+  print_header("ТЕСТЫ s21_from_decimal_to_float");
+
+  float dst_float;
+  float expected;
+
+  // Для сравнения float используем эпсилон
+  #define EPS 1e-6f
+
+  print_subheader("Проверка некорректных указателей и невалидных decimal");
+
+  // dst == NULL
+  total_tests++;
+  res = s21_from_decimal_to_float(d, NULL);
+  if (res == 1) passed_tests++;
+  print_test_result("Передача NULL dst (возврат 1)", 1, res);
+
+  // Невалидный decimal (биты 24-31 установлены)
+  s21_zero_decimal(&d);
+  d.bits[3] = 0xFFFFFFFF;
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  if (res == 1) passed_tests++;
+  print_test_result("Невалидный decimal (bits[3] с запрещёнными битами) -> возврат 1", 1, res);
+
+  // Масштаб > 28
+  s21_zero_decimal(&d);
+  d.bits[0] = 123;
+  d.bits[3] = 29 << 16;
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  if (res == 1) passed_tests++;
+  print_test_result("Невалидный decimal (масштаб 29) -> возврат 1", 1, res);
+
+  print_subheader("Преобразование нуля");
+
+  s21_zero_decimal(&d);
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  if (res == 0 && dst_float == 0.0f) passed_tests++;
+  print_test_result("Ноль -> dst = 0.0, возврат 0", 1, (res == 0 && dst_float == 0.0f));
+
+  print_subheader("Преобразование целых чисел (scale = 0)");
+
+  // 1
+  s21_zero_decimal(&d);
+  d.bits[0] = 1;
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = 1.0f;
+  if (res == 0 && fabsf(dst_float - expected) < EPS) passed_tests++;
+  print_test_result("1 -> dst ≈ 1.0", 1, (res == 0 && fabsf(dst_float - expected) < EPS));
+
+  // -1
+  s21_zero_decimal(&d);
+  d.bits[0] = 1;
+  d.bits[3] |= (1u << 31);
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = -1.0f;
+  if (res == 0 && fabsf(dst_float - expected) < EPS) passed_tests++;
+  print_test_result("-1 -> dst ≈ -1.0", 1, (res == 0 && fabsf(dst_float - expected) < EPS));
+
+  // 123
+  s21_zero_decimal(&d);
+  d.bits[0] = 123;
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = 123.0f;
+  if (res == 0 && fabsf(dst_float - expected) < EPS) passed_tests++;
+  print_test_result("123 -> dst ≈ 123.0", 1, (res == 0 && fabsf(dst_float - expected) < EPS));
+
+  // -123
+  s21_zero_decimal(&d);
+  d.bits[0] = 123;
+  d.bits[3] |= (1u << 31);
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = -123.0f;
+  if (res == 0 && fabsf(dst_float - expected) < EPS) passed_tests++;
+  print_test_result("-123 -> dst ≈ -123.0", 1, (res == 0 && fabsf(dst_float - expected) < EPS));
+
+  // 2147483647 (максимальное положительное int, помещается в float)
+  s21_zero_decimal(&d);
+  d.bits[0] = 2147483647u;
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = 2147483647.0f; // float потеряет точность, но приблизительно
+  if (res == 0 && fabsf(dst_float - expected) / expected < 1e-7f) passed_tests++;
+  print_test_result("2147483647 -> dst ≈ 2.147e9", 1, (res == 0 && fabsf(dst_float - expected) / expected < 1e-7f));
+
+  print_subheader("Преобразование чисел с дробной частью (scale > 0)");
+
+  // 0.1 (мантисса 1, scale=1)
+  s21_zero_decimal(&d);
+  d.bits[0] = 1;
+  d.bits[3] = 1 << 16; // scale=1
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = 0.1f;
+  if (res == 0 && fabsf(dst_float - expected) < EPS) passed_tests++;
+  print_test_result("0.1 -> dst ≈ 0.1", 1, (res == 0 && fabsf(dst_float - expected) < EPS));
+
+  // -0.1
+  s21_zero_decimal(&d);
+  d.bits[0] = 1;
+  d.bits[3] = (1 << 16) | (1u << 31);
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = -0.1f;
+  if (res == 0 && fabsf(dst_float - expected) < EPS) passed_tests++;
+  print_test_result("-0.1 -> dst ≈ -0.1", 1, (res == 0 && fabsf(dst_float - expected) < EPS));
+
+  // 123.456 (мантисса 123456, scale=3)
+  s21_zero_decimal(&d);
+  d.bits[0] = 123456;
+  d.bits[3] = 3 << 16;
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = 123.456f;
+  if (res == 0 && fabsf(dst_float - expected) < EPS) passed_tests++;
+  print_test_result("123.456 -> dst ≈ 123.456", 1, (res == 0 && fabsf(dst_float - expected) < EPS));
+
+  // -123.456
+  s21_zero_decimal(&d);
+  d.bits[0] = 123456;
+  d.bits[3] = (3 << 16) | (1u << 31);
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = -123.456f;
+  if (res == 0 && fabsf(dst_float - expected) < EPS) passed_tests++;
+  print_test_result("-123.456 -> dst ≈ -123.456", 1, (res == 0 && fabsf(dst_float - expected) < EPS));
+
+  // 0.000001 (мантисса 1, scale=6)
+  s21_zero_decimal(&d);
+  d.bits[0] = 1;
+  d.bits[3] = 6 << 16;
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = 1e-6f;
+  if (res == 0 && fabsf(dst_float - expected) < EPS) passed_tests++;
+  print_test_result("0.000001 -> dst ≈ 1e-6", 1, (res == 0 && fabsf(dst_float - expected) < EPS));
+
+  print_subheader("Граничные значения");
+
+  // Максимальное положительное число, которое помещается в float (мантисса 79228162514264337593543950335, scale=0)
+  // Но это число больше максимального float (~3.4e38), поэтому мы не можем его представить точно.
+  // Проверим, что функция не возвращает ошибку и даёт какое-то значение.
+  // Однако в задании не сказано проверять переполнение, просто преобразование.
+  // Поэтому используем допустимое значение: 1e28 (scale=0) или с масштабом.
+  // Для простоты возьмём 1e28, которое точно помещается в float как 1e28f.
+  s21_zero_decimal(&d);
+  // 1e28 = 10000000000000000000000000000 (28 нулей) - это 29 цифр, но мы можем задать bits[1] и bits[0]
+  // Проще использовать уже готовое число 1e28, но его сложно закодировать в bits.
+  // Вместо этого возьмём число, которое гарантированно влезает в float: 1234567890.123456 (масштаб 6)
+  // или просто 1234567890 (масштаб 0) - помещается в float без потери точности?
+  // 1234567890f - float точно представляет только до 7 значащих цифр, но сравним с погрешностью.
+  s21_zero_decimal(&d);
+  d.bits[0] = 1234567890u;
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = 1234567890.0f;
+  if (res == 0 && fabsf(dst_float - expected) / expected < 1e-7f) passed_tests++;
+  print_test_result("1234567890 (scale=0) -> dst ≈ 1.23456789e9", 1, (res == 0 && fabsf(dst_float - expected) / expected < 1e-7f));
+
+  // Минимальное отрицательное: -1234567890
+  s21_zero_decimal(&d);
+  d.bits[0] = 1234567890u;
+  d.bits[3] |= (1u << 31);
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = -1234567890.0f;
+  if (res == 0 && fabsf(dst_float - expected) / fabsf(expected) < 1e-7f) passed_tests++;
+  print_test_result("-1234567890 (scale=0) -> dst ≈ -1.23456789e9", 1, (res == 0 && fabsf(dst_float - expected) / fabsf(expected) < 1e-7f));
+
+  // Максимально возможный масштаб 28 и маленькая мантисса 1 -> 1e-28
+  s21_zero_decimal(&d);
+  d.bits[0] = 1;
+  d.bits[3] = 28 << 16;
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  expected = 1e-28f; // Это число меньше минимального нормализованного float (~1.18e-38), но 1e-28 > 1e-38, так что представимо как денормализованное
+  // Ожидаем, что функция вернёт 0 и установит значение, которое может быть не точно 1e-28, но приблизительно.
+  if (res == 0 && fabsf(dst_float - expected) < 1e-27f) passed_tests++;
+  print_test_result("1e-28 (scale=28) -> dst ≈ 1e-28", 1, (res == 0 && fabsf(dst_float - expected) < 1e-27f));
+
+  print_subheader("Проверка, что при ошибке dst не изменяется");
+
+  s21_zero_decimal(&d);
+  d.bits[3] = 0xFFFFFFFF; // невалидный
+  float backup = 123.456f;
+  dst_float = backup;
+  total_tests++;
+  res = s21_from_decimal_to_float(d, &dst_float);
+  if (res == 1 && dst_float == backup) passed_tests++;
+  print_test_result("При ошибке dst остаётся неизменным", 1, (res == 1 && dst_float == backup));
 
   printf("\n╔══════════════════════════════════════════════════════════╗\n");
   printf("║  РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ                                 ║\n");

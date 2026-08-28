@@ -500,3 +500,26 @@ int s21_from_float_to_decimal(float src, s21_decimal *dst) {
 
   return 0;
 }
+
+int s21_from_decimal_to_float(s21_decimal src, float *dst) {
+  if (dst == NULL || !s21_is_valid(src)) return 1;
+  if (s21_is_zero(src)) {
+    *dst = 0.0f;
+    return 0;
+  }
+
+  long double mant = 0.0L;
+  mant = (long double)src.bits[2];
+  mant = mant * 4294967296.0L + (long double)src.bits[1];
+  mant = mant * 4294967296.0L + (long double)src.bits[0];
+  
+  int scale = s21_get_scale(src);
+  long double divisor = 1.0L;
+  for (int i = 0; i < scale; i++) divisor *= 10.0L;
+  mant /= divisor;
+  
+  if (s21_get_sign(src)) mant = -mant;
+
+  *dst = (float)mant;
+  return 0;
+}
